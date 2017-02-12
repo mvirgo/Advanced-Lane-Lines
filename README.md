@@ -3,6 +3,8 @@
 
 In this project, I found acceptable thresholds upon which to detect lane lines from an image, gave it binary activation, transformed the image to a bird's eye-like view, calculated the curvature of the lane lines, and drew back on the lane lines detected onto the image. The output video was the re-drawn lines, along with the car's position with respect to the center of the lane, and the curvature of the lane.
 
+---
+
 ###Camera Calibration
 
 The code for this step is contained in lines 12-38 of 'full_pipeline.py'.  
@@ -14,6 +16,8 @@ Next, based on the number of inner corners on the chessboard, I prepare the "obj
 Now that I have my object points and image points, I can calibrate my camera and return the distortion coefficients. Using at least 10 images, cv2.calibrateCamera() can calculate the camera matrix and distortion coefficients (along with a few other pieces of information). I then use cv2.undistort() to see an undistorted chessboard, as shown below.
 
 ![Chessboard](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/chessboard.PNG "Original and Undistorted Chessboard")
+
+---
 
 ###Pipeline (single images)
 
@@ -187,6 +191,7 @@ Lines 467-476 will process a video by going through each video frame as an image
 Here's a [link to my video result](./reg_vid.mp4)
 
 My program does a pretty good job!
+
 ---
 
 ###Discussion
