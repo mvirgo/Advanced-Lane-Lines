@@ -122,21 +122,54 @@ Here is the original image and an image that has been perspective transformed of
 Here is a binary version of doing the same process.
 ![Binary Warp](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/birds_eye3.PNG "Binary version of warp")
 
-####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+####Finding and Fitting the Lines
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+The code for this section can be found primarily in lines 157-280 (for finding the first lines, or if the program has lost track of the lines) and 294-453 (if it has a guess as to where the lines are). I am also keeping of some important information about each line by using python classes in lines 40-77.
 
+At this point, I have some nice, perspective transformed, binary images. The next step was to plot a histogram based on where the binary activations occur across the x-axis, as the high points in a histogram are the most likely locations of the lane lines.
+
+This histogram follows pretty close to what I expected from the last binary warped image above.
 ![Histogram](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/histogram.PNG "Histogram of activation areas")
+
+Now that we have a decent histogram, we can search based off the midpoint of the histogram for two different peak areas. Once the function 'first_lines()' has its peaks, it will use sliding windows (the size of which can be changed within the function) to determine where the line most likely goes from the bottom to the top of the image.
+
+Note that the final version of my code does not stop to spit out an image anymore like the below one. At the end of the included code for first_lines(), adding back the below code would spit out the image of the sliding windows. 
+```
+# Generate x and y values for plotting
+fity = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0])
+fit_leftx = left_fit[0]*fity**2 + left_fit[1]*fity + left_fit[2]
+fit_rightx = right_fit[0]*fity**2 + right_fit[1]*fity + right_fit[2]
+
+out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
+out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
+plt.imshow(out_img)
+plt.plot(fit_leftx, fity, color='yellow')
+plt.plot(fit_rightx, fity, color='yellow')
+plt.xlim(0, 1280)
+plt.ylim(720, 0)
+plt.show()
+```
+The calculated line is not perfectly parallel, but it stil does a decent job.
 ![Sliding Windows](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/sliding_window.PNG "Using sliding windows")
+
+Note that I ended up saving important information about the lines into separate classes - I do not end up using it for much in my current final version, but a previous iteration in which I took on the challenge videos (further discussed in the "Discussion" section at the end) included various checks utilizing this information. The "try" and "except" portions are based on various errors I ran into working on the challenge videos.
+
+Now that I have found the lines the first time, the full sliding windows calculation is no longer needed. Instead, using the old lines as a basis, the program will search within a certain margin of the first lines detected (in the draw_lines() function). I also added in a counter (Lines 150-155), where if 5 frames in a row fail to detect a line, first_lines() will be run again and the sliding windows will again be used. Note that the counter gets reset if the line is detected again before reaching five.
+
+The below image shows the search areas used around the original line to check for the subsequent line.
 ![Search](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/search.PNG "Search areas")
 
-####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+####Radius of curvature and position of the vehicle
 
-I did this in lines # through # in my code in `my_other_file.py`
+Two important pieces of information (which can also be used to determine the reasonableness of the returned lines) about the image are what the curvature of the road is, and where the vehicle is in the lane compared to center. If the radius of the curvature were too low, it is probably unlikely, unless it is an extreme curve. A high radius of curvature would seem odd unless it is on a straight road. Also, if the car were very far from the center, perhaps the car is calculating a line for a different lane, or off the road.
 
-####6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+I calculated these within the draw_lines() function, primarily within Lines 392-430. For the lane curvature, I first have to convert the space from pixels to real world dimensions (Lines 397-399). Then, I calculate the polynomial fit in that space. I used the average of the two lines as my lane curvature.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+For the car's position vs. center, I calculated where the lines began at the bottom of the picture (using second_ord_poly() defined at 282-292 with the image's y-dimension size plugged in). I then compared this to where the middle of the image was (assuming the car camera is in the center of the car), after converting the image's x-dimension to meters. This gets printed onto the image as shown below.
+
+####The Result
+
+Lines 455-461 can process an image through all of the above (the function is 'process_image'). Here is an example of the final result on a single image:
 
 ![Result](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/final.PNG "Final result")
 
