@@ -26,6 +26,7 @@ The code for this step is in the pipeline() function in my code, or lines 79-117
 Next up, I looked at various color and gradient thresholds to choose how I want to perform my thresholding and generate a binary image. Note that not all of what I looked at is still in the 'full_pipeline.py' file, so I have added in a few clips below as necessary to show how to arrive at these.
 
 ####Magnitude threshold using combined Sobelx and Sobely
+
 This uses the square root of the combined squares of Sobelx and Sobely, which check for horizontal and vertical gradients (shifts in color, or in the case of our images, lighter vs. darker gray after conversion), respectively.
 
 Here's the code I used to run this on an image, since it's not in my final file.
@@ -57,11 +58,13 @@ And the end result!
 I did not use this one because it does not do a great job at detecting the left yellow line, especially over the lighter portion of the road.
 
 ####Sobelx threshold
+
 I already explained this one a bit above, and it is in the final product, so I'll just show the resulting image. I used a threshold of between 10 and 100 here (from between 0-255 in a 256 color space).
 ![Sobelx](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/orig_and_sobelx.PNG "Sobelx thresholded")
 This one detects the yellow well on the lighter portion of the image, and white is also clear. I like this one.
 
 ####RGB color thresolds
+
 I next checked the different RGB color thresholds. The end result only uses the R treshold, but the below code snippet can get you any of them. Note that you must set cmap='gray' to see the images like the below versions.
 ```
 R = image[:,:,0]
@@ -72,6 +75,7 @@ B = image[:,:,2]
 The R color channel definitely appears to see the lines the best, so I'll use this.
 
 ####HLS color thresholds
+
 The last thresholds I checked were in the HLS color space. My final product only uses S, but here's how to pull out all the HLS channels.
 ```
 hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
@@ -83,6 +87,7 @@ S = hls[:,:,2]
 The S color channel looks the best here, so I'll continue on with that.
 
 ####Limiting the thresholds
+
 I also did some limiting of how much of the color space of each threshold I wanted to try to narrow it down to just the lane lines. I have shown what I found to be the optimal thresholds for the binary images in the R & S spaces below. Note that I used 200-255 for the R threshold, and 150-255 for the S threshold in these images.
 ![R, 200-255](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/r_threshold.PNG "R thresholded, 200-255")
 ![S, 150-255](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/s_threshold.PNG "S thresholded, 150-255")
@@ -149,7 +154,7 @@ plt.xlim(0, 1280)
 plt.ylim(720, 0)
 plt.show()
 ```
-The calculated line is not perfectly parallel, but it stil does a decent job.
+The calculated line is not perfectly parallel, but it still does a decent job.
 ![Sliding Windows](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/sliding_window.PNG "Using sliding windows")
 
 Note that I ended up saving important information about the lines into separate classes - I do not end up using it for much in my current final version, but a previous iteration in which I took on the challenge videos (further discussed in the "Discussion" section at the end) included various checks utilizing this information. The "try" and "except" portions are based on various errors I ran into working on the challenge videos.
@@ -177,14 +182,32 @@ Lines 455-461 can process an image through all of the above (the function is 'pr
 
 ###Pipeline (video)
 
-####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+Lines 467-476 will process a video by going through each video frame as an image in the above described process.
 
 Here's a [link to my video result](./reg_vid.mp4)
 
+My program does a pretty good job!
 ---
 
 ###Discussion
 
-####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+####Challenges
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+This project took me longer than the first three, likely due to my lack of overall experience in computer vision. Given that I have done most of the Machine Learning nanodegree, the deep learning portions of earlier projects fit more into what I had prior knowledge of. However, I eventually found that changing thresholds (both which ones used as well as restricting the range within those) was still similar to machine learning - I was finding the important features and tuning parameters. The same was the case in determining the source and destination points, as well as the window size and search area of the first_lines() and draw_lines() functions.
+
+The best approach I eventually found with the thresholds was to try to attack the hardest test images first. This led to me focusing on the images with changes in the color of the lane, as well as large shadows. By doing so (similar to how certain boosting algorithms work in machine learning), it actually made for a better ending pipeline. This took a significant amount of time, but I think definitely improved the end product (which only produces some slight shakiness when the road changes color from dark to light and back again in the video).
+
+As I mentioned above, I did take a stab at the challenge videos, with a little (but unfortunately not complete) success. My final version included in this repository has removed some of what I had added to help with the challenge videos, but I will discuss that further below.
+
+####Potential improvements
+
+A big part of the code that is now slightly unnecessary (although included because I hope to iterate directly on it in the future, and I still believe it improves the end product) was my inclusion of classes for each line. These stemmed from my effort to remove the remaining slight shakiness of the line when the road changes color, as well as taking a crack at the challenge videos. Older versions included both a single_check() and dual_check() that first would compare a single line to its previous fit for reasonabless (if it change too much it was likely incorrect and should be discarded in favor of either the last fit or the best fit), and then to compare both lines together for whether they were parallel, as well as whether the left line was actually an appropriate distance left of the right line, and vice versa.
+
+These changes actually got me fairly close on the challenge videos - one version had decent lines drawn for roughly 75% of the challenge video! But when I went back to check it on the regular project video, it had actually managed to get significantly worse under normal conditions. So while I had improved it in more challenging situations, the improvements had clearly been too overfit to the challenge at hand, and was no longer generalizing well (I really did start seeing this like a machine learning problem).
+
+Another potential improvement I thought of was to potentially use deep learning, in one of two ways. First, I could try to enhance the images by training a deep neural network using original images followed by the result being manually drawn on lane lines in more vibrant colors. The neural network would therefore be trained to spit out these improved images. This could then be fed into the above process using more restricted thresholds (as the lane lines could be put down to very specific color spaces after being manually drawn). This of course could take massive amounts of manual image processing.
+
+The second potential option with deep learning would be to jump the process above almost entirely, and instead teach the deep neural network not to generate a new image, but to calculate out the resulting polynomial function - essentially, two regression problems to each of the two lane lines. The lines could then be drawn on using only the very end of the above process (or potentially some new process). This would probably be a bit easier, as the lines could probably be fit with software that calculates polynomials on a perspective transform image for training purposes, but the neural network could potentialy learn to skip this step and figure it out just based on the normal image.
+
+####Conclusion
+Overall, it was a very challenging project, but I definitely have a much better feel for computer vision and how to detect lane lines after spending extra time on it. I hope to eventually tackle the challenge videos as well, but for now I think I have a pretty solid pipeline!
