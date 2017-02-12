@@ -28,7 +28,7 @@ Next up, I looked at various color and gradient thresholds to choose how I want 
 ####Magnitude threshold using combined Sobelx and Sobely
 This uses the square root of the combined squares of Sobelx and Sobely, which check for horizontal and vertical gradients (shifts in color, or in the case of our images, lighter vs. darker gray after conversion), respectively.
 
-Here's some code that could run this on an image, since it's not in the final file.
+Here's the code I used to run this on an image, since it's not in my final file.
 ```
 def mag_thresh(img, sobel_kernel, mag_thresh):
     
@@ -72,7 +72,7 @@ B = image[:,:,2]
 The R color channel definitely appears to see the lines the best, so I'll use this.
 
 ####HLS color thresholds
-The last thresholds I checked were in the HLS color space.
+The last thresholds I checked were in the HLS color space. My final product only uses S, but here's how to pull out all the HLS channels.
 ```
 hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
 H = hls[:,:,0]
@@ -92,38 +92,35 @@ I came up with a final pipeline where I actually used a combination of Sobelx, S
 Below is an undistorted image, followed by one showing in separate colors the S and Sobelx activations, and then the final binary image where any two of the three being activated causes a final binary activation.
 ![Activation](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/pipeline_color_and_binary.PNG "S and Sobelx activations and full pipeline activation (S, Sobelx, or R)")
 
-####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
+####Perspective transformation
 
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+Next up is perspective transformation. This will make the image look like a bird's eye view of the road. In fact, that's exactly how I named the function that does this (Lines 114-148). After undistorting the image, I define source ("src") points of where I want the image to be transformed out from - these are essentially the bottom points of the left and right lane lines (based on when the car was traveling on a straight road), and the top of the lines, slightly down from the horizon to account for the blurriness that begins to appear further out in the image. From there, I also chose destination ("dst") points which are where I want the source points to end up in the transformed image. The code containing these points and a chart is shown below:
 
 ```
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
+src = np.float32([[690,450],[1110,img_size[1]],[175,img_size[1]],[595,450]])
 
+offset = 300 # offset for dst points
+dst = np.float32([[img_size[0]-offset, 0],[img_size[0]-offset, img_size[1]],
+    [offset, img_size[1]],[offset, 0]])
 ```
 This resulted in the following source and destination points:
 
 | Source        | Destination   | 
 |:-------------:|:-------------:| 
-| 585, 460      | 320, 0        | 
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
-| 695, 460      | 960, 0        |
+| 690, 450      | 980, 0        | 
+| 1110, 720     | 980, 720      |
+| 175, 720      | 300, 720      |
+| 595, 450      | 300, 0        |
 
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+To verify that these points worked, I drew the lines (using cv2.line() with the source points on the original image and the destination points onto the transformed image) back onto the images to check that they were mostly parallel. Note that this was done on one of the provided images of a straight road, as opposed to some of the curves I have been using as example images so far.
 
 ![Parallel Check](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/birds_eye.PNG "Checking for parallel")
+
+Here is the original image and an image that has been perspective transformed of a curve.
 ![Bird's Eye](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/birds_eye2.PNG "Warped image of the road")
+
+Here is a binary version of doing the same process.
 ![Binary Warp](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/birds_eye3.PNG "Binary version of warp")
-![Binary Road](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/binary_bird.PNG "Binary road")
 
 ####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
