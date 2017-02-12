@@ -17,19 +17,79 @@ Now that I have my object points and image points, I can calibrate my camera and
 
 ###Pipeline (single images)
 
-####1. Provide an example of a distortion-corrected image.
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
+Now that we can undistort the images from the camera, I'll apply this to a road image, as shown below - it is not quite as obvious of a change as the chessboard is, but the same undistortion is being done to it.
+
 ![Orig & Undist Road](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/orig_and_undist.PNG "Original and Undistorted Road")
-####2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
 
+The code for this step is in the pipeline() function in my code, or lines 79-117.
+
+Next up, I looked at various color and gradient thresholds to choose how I want to perform my thresholding and generate a binary image. Note that not all of what I looked at is still in the 'full_pipeline.py' file, so I have added in a few clips below as necessary to show how to arrive at these.
+
+####Magnitude threshold using combined Sobelx and Sobely
+This uses the square root of the combined squares of Sobelx and Sobely, which check for horizontal and vertical gradients (shifts in color, or in the case of our images, lighter vs. darker gray after conversion), respectively.
+
+Here's some code that could run this on an image, since it's not in the final file.
+```
+def mag_thresh(img, sobel_kernel, mag_thresh):
+    
+    # Apply the following steps to img
+    # 1) Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    # 2) Take the gradient in x and y separately
+    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize = sobel_kernel)
+    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize = sobel_kernel)
+    # 3) Calculate the magnitude
+    mag = np.sqrt(np.square(sobelx)+np.square(sobely))
+    # 4) Scale to 8-bit (0 - 255) and convert to type = np.uint8
+    scaled_mag = np.uint8(255*mag/np.max(mag))
+    # 5) Create a binary mask where mag thresholds are met
+    binary_output = np.zeros_like(scaled_mag)
+    binary_output[(scaled_mag >= mag_thresh[0]) & (scaled_mag <= mag_thresh[1])] = 1
+    # 6) Return this mask as your binary_output image
+    return binary_output
+    
+# Run the function
+mag_binary = mag_thresh(image, sobel_kernel=3, mag_thresh=(50, 200))
+
+```
+And the end result!
 ![Mag](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/undist_and_mag.PNG "Magnitude of sobelx and sobely")
-![Sobelx](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/orig_and_sobelx.PNG "Sobelx thresholded")
-![RGB](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/rgb.PNG "RGB thresholds")
-![HLS](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/hls.PNG "HLS thresholds")
+I did not use this one because it does not do a great job at detecting the left yellow line, especially over the lighter portion of the road.
 
+####Sobelx threshold
+I already explained this one a bit above, and it is in the final product, so I'll just show the resulting image. I used a threshold of between 10 and 100 here (from between 0-255 in a 256 color space).
+![Sobelx](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/orig_and_sobelx.PNG "Sobelx thresholded")
+This one detects the yellow well on the lighter portion of the image, and white is also clear. I like this one.
+
+####RGB color thresolds
+I next checked the different RGB color thresholds. The end result only uses the R treshold, but the below code snippet can get you any of them. Note that you must set cmap='gray' to see the images like the below versions.
+```
+R = image[:,:,0]
+G = image[:,:,1]
+B = image[:,:,2]
+```
+![RGB](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/rgb.PNG "RGB thresholds")
+The R color channel definitely appears to see the lines the best, so I'll use this.
+
+####HLS color thresholds
+The last thresholds I checked were in the HLS color space.
+```
+hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+H = hls[:,:,0]
+L = hls[:,:,1]
+S = hls[:,:,2]
+```
+![HLS](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/hls.PNG "HLS thresholds")
+The S color channel looks the best here, so I'll continue on with that.
+
+####Limiting the thresholds
+I also did some limiting of how much of the color space of each threshold I wanted to try to narrow it down to just the lane lines. I have shown what I found to be the optimal thresholds for the binary images in the R & S spaces below. Note that I used 200-255 for the R threshold, and 150-255 for the S threshold in these images.
 ![R, 200-255](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/r_threshold.PNG "R thresholded, 200-255")
 ![S, 150-255](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/s_threshold.PNG "S thresholded, 150-255")
+
+I came up with a final pipeline where I actually used a combination of Sobelx, S and R. In my code (see lines 112-115), if any two of the three are activated, then I want the binary image to be activated. If only one is activated then it does not get activated. Note that due to this approach, I expanded the thresholds on S from the above images to 125-255, as it improved the final returned binary image by a little bit (R and Sobelx stayed the same).  
+
+Below is an undistorted image, followed by one showing in separate colors the S and Sobelx activations, and then the final binary image where any two of the three being activated causes a final binary activation.
 ![Activation](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/pipeline_color_and_binary.PNG "S and Sobelx activations and full pipeline activation (S, Sobelx, or R)")
 
 ####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
