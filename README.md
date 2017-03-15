@@ -1,13 +1,13 @@
 # Advanced-Lane-Lines
-##Udacity SDC Nanodegree Project 4
+## Udacity SDC Nanodegree Project 4
 
-###Project Summary
+### Project Summary
 
 In this project, I found acceptable thresholds upon which to detect lane lines from an image, gave it binary activation, transformed the image to a bird's eye-like view, calculated the curvature of the lane lines, and drew back on the lane lines detected onto the image. The output video was the re-drawn lines, along with the car's position with respect to the center of the lane, and the curvature of the lane.
 
 ---
 
-###Camera Calibration
+### Camera Calibration
 
 The code for this step is contained in lines 12-38 of 'full_pipeline.py'.  
 
@@ -21,7 +21,7 @@ Now that I have my object points and image points, I can calibrate my camera and
 
 ---
 
-###Pipeline (single images)
+### Pipeline (single images)
 
 Now that we can undistort the images from the camera, I'll apply this to a road image, as shown below - it is not quite as obvious of a change as the chessboard is, but the same undistortion is being done to it.
 
@@ -31,7 +31,7 @@ The code for this step is in the pipeline() function in my code, or lines 79-117
 
 Next up, I looked at various color and gradient thresholds to choose how I want to perform my thresholding and generate a binary image. Note that not all of what I looked at is still in the 'full_pipeline.py' file, so I have added in a few clips below as necessary to show how to arrive at these.
 
-####Magnitude threshold using combined Sobelx and Sobely
+#### Magnitude threshold using combined Sobelx and Sobely
 
 This uses the square root of the combined squares of Sobelx and Sobely, which check for horizontal and vertical gradients (shifts in color, or in the case of our images, lighter vs. darker gray after conversion), respectively.
 
@@ -63,13 +63,13 @@ And the end result!
 ![Mag](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/undist_and_mag.PNG "Magnitude of sobelx and sobely")
 I did not use this one because it does not do a great job at detecting the left yellow line, especially over the lighter portion of the road.
 
-####Sobelx threshold
+#### Sobelx threshold
 
 I already explained this one a bit above, and it is in the final product, so I'll just show the resulting image. I used a threshold of between 10 and 100 here (from between 0-255 in a 256 color space).
 ![Sobelx](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/orig_and_sobelx.PNG "Sobelx thresholded")
 This one detects the yellow well on the lighter portion of the image, and white is also clear. I like this one.
 
-####RGB color thresolds
+#### RGB color thresolds
 
 I next checked the different RGB color thresholds. The end result only uses the R treshold, but the below code snippet can get you any of them. Note that you must set cmap='gray' to see the images like the below versions.
 ```
@@ -80,7 +80,7 @@ B = image[:,:,2]
 ![RGB](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/rgb.PNG "RGB thresholds")
 The R color channel definitely appears to see the lines the best, so I'll use this.
 
-####HLS color thresholds
+#### HLS color thresholds
 
 The last thresholds I checked were in the HLS color space. My final product only uses S, but here's how to pull out all the HLS channels.
 ```
@@ -92,7 +92,7 @@ S = hls[:,:,2]
 ![HLS](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/hls.PNG "HLS thresholds")
 The S color channel looks the best here, so I'll continue on with that.
 
-####Limiting the thresholds
+#### Limiting the thresholds
 
 I also did some limiting of how much of the color space of each threshold I wanted to try to narrow it down to just the lane lines. I have shown what I found to be the optimal thresholds for the binary images in the R & S spaces below. Note that I used 200-255 for the R threshold, and 150-255 for the S threshold in these images.
 ![R, 200-255](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/r_threshold.PNG "R thresholded, 200-255")
@@ -103,7 +103,7 @@ I came up with a final pipeline where I actually used a combination of Sobelx, S
 Below is an undistorted image, followed by one showing in separate colors the S and Sobelx activations, and then the final binary image where any two of the three being activated causes a final binary activation.
 ![Activation](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/pipeline_color_and_binary.PNG "S and Sobelx activations and full pipeline activation (S, Sobelx, or R)")
 
-####Perspective transformation
+#### Perspective transformation
 
 Next up is perspective transformation. This will make the image look like a bird's eye view of the road. In fact, that's exactly how I named the function that does this (Lines 114-148). After undistorting the image, I define source ("src") points of where I want the image to be transformed out from - these are essentially the bottom points of the left and right lane lines (based on when the car was traveling on a straight road), and the top of the lines, slightly down from the horizon to account for the blurriness that begins to appear further out in the image. From there, I also chose destination ("dst") points which are where I want the source points to end up in the transformed image. The code containing these points and a chart is shown below:
 
@@ -133,7 +133,7 @@ Here is the original image and an image that has been perspective transformed of
 Here is a binary version of doing the same process.
 ![Binary Warp](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/birds_eye3.PNG "Binary version of warp")
 
-####Finding and Fitting the Lines
+#### Finding and Fitting the Lines
 
 The code for this section can be found primarily in lines 157-280 (for finding the first lines, or if the program has lost track of the lines) and 294-453 (if it has a guess as to where the lines are). I am also keeping of some important information about each line by using python classes in lines 40-77.
 
@@ -170,7 +170,7 @@ Now that I have found the lines the first time, the full sliding windows calcula
 The below image shows the search areas used around the original line to check for the subsequent line.
 ![Search](https://github.com/mvirgo/Advanced-Lane-Lines/blob/master/Images/search.PNG "Search areas")
 
-####Radius of curvature and position of the vehicle
+#### Radius of curvature and position of the vehicle
 
 Two important pieces of information (which can also be used to determine the reasonableness of the returned lines) about the image are what the curvature of the road is, and where the vehicle is in the lane compared to center. If the radius of the curvature were too low, it is probably unlikely, unless it is an extreme curve. A high radius of curvature would seem odd unless it is on a straight road. Also, if the car were very far from the center, perhaps the car is calculating a line for a different lane, or off the road.
 
@@ -178,7 +178,7 @@ I calculated these within the draw_lines() function, primarily within Lines 392-
 
 For the car's position vs. center, I calculated where the lines began at the bottom of the picture (using second_ord_poly() defined at 282-292 with the image's y-dimension size plugged in). I then compared this to where the middle of the image was (assuming the car camera is in the center of the car), after converting the image's x-dimension to meters. This gets printed onto the image as shown below.
 
-####The Result
+#### The Result
 
 Lines 455-461 can process an image through all of the above (the function is 'process_image'). Here is an example of the final result on a single image:
 
@@ -186,7 +186,7 @@ Lines 455-461 can process an image through all of the above (the function is 'pr
 
 ---
 
-###Pipeline (video)
+### Pipeline (video)
 
 Lines 467-476 will process a video by going through each video frame as an image in the above described process.
 
@@ -196,9 +196,9 @@ My program does a pretty good job!
 
 ---
 
-###Discussion
+### Discussion
 
-####Challenges
+#### Challenges
 
 This project took me longer than the first three, likely due to my lack of overall experience in computer vision. Given that I have done most of the Machine Learning nanodegree, the deep learning portions of earlier projects fit more into what I had prior knowledge of. However, I eventually found that changing thresholds (both which ones used as well as restricting the range within those) was still similar to machine learning - I was finding the important features and tuning parameters. The same was the case in determining the source and destination points, as well as the window size and search area of the first_lines() and draw_lines() functions.
 
@@ -206,7 +206,7 @@ The best approach I eventually found with the thresholds was to try to attack th
 
 As I mentioned above, I did take a stab at the challenge videos, with a little (but unfortunately not complete) success. My final version included in this repository has removed some of what I had added to help with the challenge videos, but I will discuss that further below.
 
-####Potential improvements
+#### Potential improvements
 
 A big part of the code that is now slightly unnecessary (although included because I hope to iterate directly on it in the future, and I still believe it improves the end product) was my inclusion of classes for each line. These stemmed from my effort to remove the remaining slight shakiness of the line when the road changes color, as well as taking a crack at the challenge videos. Older versions included both a single_check() and dual_check() that first would compare a single line to its previous fit for reasonabless (if it change too much it was likely incorrect and should be discarded in favor of either the last fit or the best fit), and then to compare both lines together for whether they were parallel, as well as whether the left line was actually an appropriate distance left of the right line, and vice versa.
 
@@ -216,5 +216,5 @@ Another potential improvement I thought of was to potentially use deep learning,
 
 The second potential option with deep learning would be to jump the process above almost entirely, and instead teach the deep neural network not to generate a new image, but to calculate out the resulting polynomial function - essentially, two regression problems to each of the two lane lines. The lines could then be drawn on using only the very end of the above process (or potentially some new process). This would probably be a bit easier, as the lines could probably be fit with software that calculates polynomials on a perspective transform image for training purposes, but the neural network could potentialy learn to skip this step and figure it out just based on the normal image.
 
-####Conclusion
+#### Conclusion
 Overall, it was a very challenging project, but I definitely have a much better feel for computer vision and how to detect lane lines after spending extra time on it. I hope to eventually tackle the challenge videos as well, but for now I think I have a pretty solid pipeline!
