@@ -145,7 +145,7 @@ def first_lines(img, mtx, dist):
     binary_warped, perspective_M = birds_eye(img, mtx, dist)
     
     # Histogram of the bottom half of the image
-    histogram = np.sum(binary_warped[binary_warped.shape[0]/2:,:], axis=0)
+    histogram = np.sum(binary_warped[int(binary_warped.shape[0]/2):,:], axis=0)
     
     # Output image an to draw on and visualize the result
     out_img = np.dstack((binary_warped, binary_warped, binary_warped))*255
