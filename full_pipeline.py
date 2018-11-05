@@ -12,6 +12,9 @@ from IPython.display import HTML
 # Define a class to receive the characteristics of each line detection
 class Line():
 	def __init__(self):
+		# polynomial coefficients averaged over the last n iterations
+		self.best_fit = None
+		# Initialize all others not carried over between first detections
 		self.reset()
 
 	def reset(self):
@@ -19,8 +22,6 @@ class Line():
 		self.detected = False  
 		# recent polynomial coefficients
 		self.recent_fit = []
-		# polynomial coefficients averaged over the last n iterations
-		self.best_fit = None  
 		# polynomial coefficients for the most recent fit
 		self.current_fit = [np.array([False])]  
 		# difference in fit coefficients between last and new fits
@@ -36,8 +37,40 @@ class Line():
 		""" 
 		Resets the line class upon failing five times in a row.
 		"""
+		# Increment the counter - NOT IMPLEMENTED
+		#self.counter += 1
+		# Reset if failed five times
 		if self.counter >= 5:
 			self.reset()
+
+	def fit_line(self, x_points, y_points, first_try=True):
+		# Fit a second order polynomial to the line
+		# The challenge videos sometimes throw errors, so the below try first
+		# Upon the error being thrown, either reset the line or add to counter
+		try: 
+			n = 5
+			self.current_fit = np.polyfit(y_points, x_points, 2)
+			self.all_x = x_points
+			self.all_y = y_points
+			self.recent_fit.append(self.current_fit)
+			if len(self.recent_fit) > 1:
+				self.diffs = (self.recent_fit[-2] - self.recent_fit[-1]) / self.recent_fit[-2]
+			self.recent_fit = self.recent_fit[-n:]
+			self.best_fit = np.mean(self.recent_fit, axis = 0)
+			line_fit = self.current_fit
+			self.detected = True
+			self.counter = 0
+
+			return line_fit
+
+		except (TypeError, np.linalg.LinAlgError):
+			line_fit = self.best_fit
+			if first_try == True:
+				self.reset()
+			else:
+				self.count_check()
+
+			return line_fit
 
 def calibration(cal_image_loc):
 	# Load in the chessboard calibration images to a list
@@ -65,8 +98,7 @@ def calibration(cal_image_loc):
 			cv2.drawChessboardCorners(image, (9, 6), corners, ret)
 
 	# Returns camera calibration
-	ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, 
-													   gray.shape[::-1], None, None)
+	ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
 	return mtx, dist
 
@@ -219,50 +251,9 @@ def first_lines(img, mtx, dist):
 	rightx = nonzerox[right_lane_inds]
 	righty = nonzeroy[right_lane_inds] 
 
-	# Fit a second order polynomial to each
-	# The challenge videos sometimes throw errors, so the below try first
-	# Upon the error being thrown, set line.detected to False
-	# Left line first
-	try: 
-		n = 5
-		left_line.current_fit = np.polyfit(lefty, leftx, 2)
-		left_line.all_x = leftx
-		left_line.all_y = lefty
-		left_line.recent_fit.append(left_line.current_fit)
-		if len(left_line.recent_fit) > 1:
-			left_line.diffs = (left_line.recent_fit[-2] - left_line.recent_fit[-1]) / left_line.recent_fit[-2]
-		left_line.recent_fit = left_line.recent_fit[-n:]
-		left_line.best_fit = np.mean(left_line.recent_fit, axis = 0)
-		left_fit = left_line.current_fit
-		left_line.detected = True
-		left_line.counter = 0
-	except TypeError:
-		left_fit = left_line.best_fit
-		left_line.reset()
-	except np.linalg.LinAlgError:
-		left_fit = left_line.best_fit
-		left_line.reset()
-
-	# Next, right line    
-	try:
-		n = 5
-		right_line.current_fit = np.polyfit(righty, rightx, 2)
-		right_line.all_x = rightx
-		right_line.all_y = righty
-		right_line.recent_fit.append(right_line.current_fit)
-		if len(right_line.recent_fit) > 1:
-			right_line.diffs = (right_line.recent_fit[-2] - right_line.recent_fit[-1]) / right_line.recent_fit[-2]
-		right_line.recent_fit = right_line.recent_fit[-n:]
-		right_line.best_fit = np.mean(right_line.recent_fit, axis = 0)
-		right_fit = right_line.current_fit
-		right_line.detected = True
-		right_line.counter = 0
-	except TypeError:
-		right_fit = right_line.best_fit
-		right_line.reset()
-	except np.linalg.LinAlgError:
-		right_fit = right_line.best_fit
-		right_line.reset()
+	# Fit a second order polynomial to each line
+	left_fit = left_line.fit_line(leftx, lefty, True)
+	right_fit = right_line.fit_line(rightx, righty, True)
 
 def second_ord_poly(line, val):
 	""" Simple function being used to help calculate distance from center.
@@ -309,48 +300,8 @@ def draw_lines(img, mtx, dist):
 	righty = nonzeroy[right_lane_inds]
 	
 	# Fit a second order polynomial to each again.
-	# Similar to first_lines, need to try in case of errors
-	# Left line first
-	try: 
-		n = 5
-		left_line.current_fit = np.polyfit(lefty, leftx, 2)
-		left_line.all_x = leftx
-		left_line.all_y = lefty
-		left_line.recent_fit.append(left_line.current_fit)
-		if len(left_line.recent_fit) > 1:
-			left_line.diffs = (left_line.recent_fit[-2] - left_line.recent_fit[-1]) / left_line.recent_fit[-2]
-		left_line.recent_fit = left_line.recent_fit[-n:]
-		left_line.best_fit = np.mean(left_line.recent_fit, axis = 0)
-		left_fit = left_line.current_fit
-		left_line.detected = True
-		left_line.counter = 0
-	except TypeError:
-		left_fit = left_line.best_fit
-		left_line.count_check()
-	except np.linalg.LinAlgError:
-		left_fit = left_line.best_fit
-		left_line.count_check()
-
-	# Now right line    
-	try:
-		n = 5
-		right_line.current_fit = np.polyfit(righty, rightx, 2)
-		right_line.all_x = rightx
-		right_line.all_y = righty
-		right_line.recent_fit.append(right_line.current_fit)
-		if len(right_line.recent_fit) > 1:
-			right_line.diffs = (right_line.recent_fit[-2] - right_line.recent_fit[-1]) / right_line.recent_fit[-2]
-		right_line.recent_fit = right_line.recent_fit[-n:]
-		right_line.best_fit = np.mean(right_line.recent_fit, axis = 0)
-		right_fit = right_line.current_fit
-		right_line.detected = True
-		right_line.counter = 0
-	except TypeError:
-		right_fit = right_line.best_fit
-		right_line.count_check()
-	except np.linalg.LinAlgError:
-		right_fit = right_line.best_fit
-		right_line.count_check()
+	left_fit = left_line.fit_line(leftx, lefty, False)
+	right_fit = right_line.fit_line(rightx, righty, False)
 
 	# Generate x and y values for plotting
 	fity = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
