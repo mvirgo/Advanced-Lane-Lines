@@ -12,6 +12,9 @@ from IPython.display import HTML
 # Define a class to receive the characteristics of each line detection
 class Line():
 	def __init__(self):
+		self.reset()
+
+	def reset(self):
 		# was the line detected in the last iteration?
 		self.detected = False  
 		# recent polynomial coefficients
@@ -27,7 +30,14 @@ class Line():
 		# y values for detected line pixels
 		self.ally = None
 		# counter to reset after 5 iterations if issues arise
-		self.counter = 0
+		self.counter = 0		
+
+	def count_check(self):
+		""" 
+		Resets the line class upon failing five times in a row.
+		"""
+		if self.counter >= 5:
+			self.reset()
 
 def calibration(cal_image_loc):
 	# Load in the chessboard calibration images to a list
@@ -109,12 +119,9 @@ def birds_eye(img, mtx, dist):
 	"""
 	# Put the image through the pipeline to get the binary image
 	binary_img = pipeline(img, mtx, dist)
-	
-	# Undistort
-	undist = cv2.undistort(binary_img, mtx, dist, None, mtx)
 
 	# Grab the image shape
-	img_size = (undist.shape[1], undist.shape[0])
+	img_size = (binary_img.shape[1], binary_img.shape[0])
 
 	# Source points - defined area of lane line edges
 	src = np.float32([[690,450],[1110,img_size[1]],[175,img_size[1]],[595,450]])
@@ -128,16 +135,9 @@ def birds_eye(img, mtx, dist):
 	M = cv2.getPerspectiveTransform(src, dst)
 	
 	# Use cv2.warpPerspective() to warp the image to a top-down view
-	top_down = cv2.warpPerspective(undist, M, img_size)
+	top_down = cv2.warpPerspective(binary_img, M, img_size)
 
 	return top_down, M
-
-def count_check(line):
-	""" Resets to using new sliding windows below if
-	upon failing five times in a row.
-	"""
-	if line.counter >= 5:
-		line.detected = False
 
 def first_lines(img, mtx, dist):
 	""" First Lines uses the birds eye image from above,
@@ -238,10 +238,10 @@ def first_lines(img, mtx, dist):
 		left_line.counter = 0
 	except TypeError:
 		left_fit = left_line.best_fit
-		left_line.detected = False
+		left_line.reset()
 	except np.linalg.LinAlgError:
 		left_fit = left_line.best_fit
-		left_line.detected = False
+		left_line.reset()
 
 	# Next, right line    
 	try:
@@ -259,10 +259,10 @@ def first_lines(img, mtx, dist):
 		right_line.counter = 0
 	except TypeError:
 		right_fit = right_line.best_fit
-		right_line.detected = False
+		right_line.reset()
 	except np.linalg.LinAlgError:
 		right_fit = right_line.best_fit
-		right_line.detected = False
+		right_line.reset()
 
 def second_ord_poly(line, val):
 	""" Simple function being used to help calculate distance from center.
@@ -287,7 +287,7 @@ def draw_lines(img, mtx, dist):
 	binary_warped, perspective_M = birds_eye(img, mtx, dist)
 
 	# Check if lines were last detected; if not, re-run first_lines
-	if left_line.detected == False | right_line.detected == False:
+	if left_line.detected == False or right_line.detected == False:
 		first_lines(img, mtx, dist)
 
 	# Set the fit as the current fit for now
@@ -326,10 +326,10 @@ def draw_lines(img, mtx, dist):
 		left_line.counter = 0
 	except TypeError:
 		left_fit = left_line.best_fit
-		count_check(left_line)
+		left_line.count_check()
 	except np.linalg.LinAlgError:
 		left_fit = left_line.best_fit
-		count_check(left_line)
+		left_line.count_check()
 
 	# Now right line    
 	try:
@@ -347,10 +347,10 @@ def draw_lines(img, mtx, dist):
 		right_line.counter = 0
 	except TypeError:
 		right_fit = right_line.best_fit
-		count_check(right_line)
+		right_line.count_check()
 	except np.linalg.LinAlgError:
 		right_fit = right_line.best_fit
-		count_check(right_line)
+		right_line.count_check()
 
 	# Generate x and y values for plotting
 	fity = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
@@ -391,7 +391,7 @@ def draw_lines(img, mtx, dist):
 	left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
 	right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
 	avg_rad = round(np.mean([left_curverad, right_curverad]),0)
-	rad_text = "Radius of Curvature = {}(m)".format(avg_rad)
+	rad_text = 'Radius of Curvature = {}(m)'.format(avg_rad)
 
 	# Calculating middle of the image, aka where the car camera is
 	middle_of_image = img.shape[1] / 2
@@ -405,9 +405,9 @@ def draw_lines(img, mtx, dist):
 	# Calculate distance from center and list differently based on left or right
 	dist_from_center = lane_mid - car_position
 	if dist_from_center >= 0:
-		center_text = "{} meters left of center".format(round(dist_from_center,2))
+		center_text = '{} meters left of center'.format(round(dist_from_center,2))
 	else:
-		center_text = "{} meters right of center".format(round(-dist_from_center,2))
+		center_text = '{} meters right of center'.format(round(-dist_from_center,2))
 		
 	# List car's position in relation to middle on the image and radius of curvature
 	font = cv2.FONT_HERSHEY_SIMPLEX
@@ -427,7 +427,7 @@ def draw_lines(img, mtx, dist):
 	pts = np.hstack((pts_left, pts_right))
 
 	# Draw the lane onto the warped blank image
-	cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+	cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
 
 	# Warp the blank back to original image space using inverse perspective matrix (Minv)
 	newwarp = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0]))
@@ -457,7 +457,7 @@ def main():
 	vid_output = 'reg_vid.mp4'
 
 	# The file referenced in clip1 is the original video before anything has been done to it
-	clip1 = VideoFileClip("project_video.mp4")
+	clip1 = VideoFileClip('project_video.mp4')
 
 	# NOTE: this function expects color images
 	vid_clip = clip1.fl_image(lambda image: process_image(image, mtx, dist))
