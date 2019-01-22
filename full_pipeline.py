@@ -2,7 +2,6 @@ import numpy as np
 import os
 import cv2
 import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
 import glob
 
 # Import everything needed to process video clip for later
@@ -34,9 +33,9 @@ class Line():
 		self.counter = 0		
 
 	def count_check(self):
-		""" 
+		''' 
 		Resets the line class upon failing five times in a row.
-		"""
+		'''
 		# Increment the counter - NOT IMPLEMENTED
 		#self.counter += 1
 		# Reset if failed five times
@@ -44,9 +43,11 @@ class Line():
 			self.reset()
 
 	def fit_line(self, x_points, y_points, first_try=True):
-		# Fit a second order polynomial to the line
-		# The challenge videos sometimes throw errors, so the below try first
-		# Upon the error being thrown, either reset the line or add to counter
+		'''
+		Fit a second order polynomial to the line.
+		The challenge videos sometimes throws errors, so the below trys first.
+		Upon the error being thrown, either reset the line or add to counter.
+		'''
 		try: 
 			n = 5
 			self.current_fit = np.polyfit(y_points, x_points, 2)
@@ -73,6 +74,9 @@ class Line():
 			return line_fit
 
 def calibration(cal_image_loc):
+	'''
+	Perform camera calibration.
+	'''
 	# Load in the chessboard calibration images to a list
 	calibration_images = []
 
@@ -98,16 +102,19 @@ def calibration(cal_image_loc):
 			cv2.drawChessboardCorners(image, (9, 6), corners, ret)
 
 	# Returns camera calibration
-	ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+	ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, 
+													   gray.shape[::-1], None, 
+													   None)
 
 	return mtx, dist
 
 def pipeline(img, mtx, dist, s_thresh=(125, 255), sx_thresh=(10, 100), 
 			 R_thresh = (200, 255), sobel_kernel = 3):
-	""" Pipeline to create binary image.
+	''' 
+	Pipeline to create binary image.
 	This version uses thresholds on the R & S color channels and Sobelx.
 	Binary activation occurs where any two of the three are activated.
-	"""
+	'''
 	distorted_img = np.copy(img)
 	dst = cv2.undistort(distorted_img, mtx, dist, None, mtx)
 	# Pull R
@@ -126,7 +133,8 @@ def pipeline(img, mtx, dist, s_thresh=(125, 255), sx_thresh=(10, 100),
 	
 	# Threshold x gradient
 	sxbinary = np.zeros_like(scaled_sobelx)
-	sxbinary[(scaled_sobelx >= sx_thresh[0]) & (scaled_sobelx <= sx_thresh[1])] = 1
+	sxbinary[(scaled_sobelx >= sx_thresh[0]) 
+			 & (scaled_sobelx <= sx_thresh[1])] = 1
 
 	# Threshold R color channel
 	R_binary = np.zeros_like(R)
@@ -138,17 +146,19 @@ def pipeline(img, mtx, dist, s_thresh=(125, 255), sx_thresh=(10, 100),
 
 	# If two of the three are activated, activate in the binary image
 	combined_binary = np.zeros_like(sxbinary)
-	combined_binary[((s_binary == 1) & (sxbinary == 1)) | ((sxbinary == 1) & (R_binary == 1))
+	combined_binary[((s_binary == 1) & (sxbinary == 1)) 
+					 | ((sxbinary == 1) & (R_binary == 1))
 					 | ((s_binary == 1) & (R_binary == 1))] = 1
 
 	return combined_binary
 
 def birds_eye(img, mtx, dist):
-	""" Birds eye first undistorts the image, using the calibration from earlier.
+	'''
+	Birds eye first undistorts the image, using the calibration from earlier.
 	Next, using defined source image points and destination points,
 	it will transform the image as if the road was viewed from above,
 	like a bird would see. Returns the birds eye image and transform matrix.
-	"""
+	'''
 	# Put the image through the pipeline to get the binary image
 	binary_img = pipeline(img, mtx, dist)
 
@@ -172,11 +182,12 @@ def birds_eye(img, mtx, dist):
 	return top_down, M
 
 def first_lines(img, mtx, dist):
-	""" First Lines uses the birds eye image from above,
+	'''
+	First Lines uses the birds eye image from above,
 	creates a histogram of where the binary activations occur,
 	and uses sliding windows along the peak areas to estimate
 	where the lane lines are.
-	"""
+	'''
 	# Load the birds eye image and transform matrix from birds_eye
 	binary_warped, perspective_M = birds_eye(img, mtx, dist)
 	
@@ -227,15 +238,21 @@ def first_lines(img, mtx, dist):
 		win_xright_low = rightx_current - margin
 		win_xright_high = rightx_current + margin
 		# Draw the windows on the visualization image
-		cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
-		cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
+		cv2.rectangle(out_img,(win_xleft_low,win_y_low),
+					  (win_xleft_high,win_y_high),(0,255,0), 2) 
+		cv2.rectangle(out_img,(win_xright_low,win_y_low),
+					  (win_xright_high,win_y_high),(0,255,0), 2) 
 		# Identify the nonzero pixels in x and y within the window
-		good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
-		good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
+		good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) 
+						  & (nonzerox >= win_xleft_low) 
+						  & (nonzerox < win_xleft_high)).nonzero()[0]
+		good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) 
+						  & (nonzerox >= win_xright_low) 
+						  & (nonzerox < win_xright_high)).nonzero()[0]
 		# Append these indices to the lists
 		left_lane_inds.append(good_left_inds)
 		right_lane_inds.append(good_right_inds)
-		# If you found > minpix pixels, recenter next window on their mean position
+		# If you found > minpix pixels, recenter next window on mean position
 		if len(good_left_inds) > minpix:
 			leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
 		if len(good_right_inds) > minpix:        
@@ -256,10 +273,11 @@ def first_lines(img, mtx, dist):
 	right_fit = right_line.fit_line(rightx, righty, True)
 
 def second_ord_poly(line, val):
-	""" Simple function being used to help calculate distance from center.
+	'''
+	Simple function being used to help calculate distance from center.
 	Only used within Draw Lines below. Finds the base of the line at the
 	bottom of the image.
-	"""
+	'''
 	a = line[0]
 	b = line[1]
 	c = line[2]
@@ -268,12 +286,13 @@ def second_ord_poly(line, val):
 	return formula
 
 def draw_lines(img, mtx, dist):
-	""" Draw Lines will first check whether the lines are detected.
+	'''
+	Draw Lines will first check whether the lines are detected.
 	If not, go back up to First Lines. If they are, we do not have to search
 	the whole image for the lines. We can then draw the lines,
 	as well as detect where the car is in relation to the middle of the lane,
 	and what type of curvature it is driving at.
-	"""
+	'''
 	# Pull in the image
 	binary_warped, perspective_M = birds_eye(img, mtx, dist)
 
@@ -290,8 +309,10 @@ def draw_lines(img, mtx, dist):
 	nonzeroy = np.array(nonzero[0])
 	nonzerox = np.array(nonzero[1])
 	margin = 100
-	left_lane_inds = ((nonzerox > (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] - margin)) & (nonzerox < (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] + margin))) 
-	right_lane_inds = ((nonzerox > (right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2] - margin)) & (nonzerox < (right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2] + margin)))
+	left_lane_inds = ((nonzerox > (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] - margin)) 
+					  & (nonzerox < (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] + margin))) 
+	right_lane_inds = ((nonzerox > (right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2] - margin)) 
+					   & (nonzerox < (right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2] + margin)))
 
 	# Set the x and y values of points on each line
 	leftx = nonzerox[left_lane_inds]
@@ -335,8 +356,10 @@ def draw_lines(img, mtx, dist):
 	xm_per_pix = 3.7/700 # meters per pixel in x dimension
 
 	# Fit new polynomials to x,y in world space
-	left_fit_cr = np.polyfit(left_line.all_y*ym_per_pix, left_line.all_x*xm_per_pix, 2)
-	right_fit_cr = np.polyfit(right_line.all_y*ym_per_pix, right_line.all_x*xm_per_pix, 2)
+	left_fit_cr = np.polyfit(left_line.all_y*ym_per_pix, 
+							 left_line.all_x*xm_per_pix, 2)
+	right_fit_cr = np.polyfit(right_line.all_y*ym_per_pix, 
+							  right_line.all_x*xm_per_pix, 2)
 	
 	# Calculate the new radii of curvature
 	left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
@@ -365,7 +388,8 @@ def draw_lines(img, mtx, dist):
 	cv2.putText(img, center_text, (10,50), font, 1,(255,255,255),2)
 	cv2.putText(img, rad_text, (10,100), font, 1,(255,255,255),2)
 
-	# Invert the transform matrix from birds_eye (to later make the image back to normal below)
+	# Invert the transform matrix from birds_eye (to later make the image back 
+	#   to normal below)
 	Minv = np.linalg.inv(perspective_M)
 
 	# Create an image to draw the lines on
@@ -380,7 +404,8 @@ def draw_lines(img, mtx, dist):
 	# Draw the lane onto the warped blank image
 	cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
 
-	# Warp the blank back to original image space using inverse perspective matrix (Minv)
+	# Warp the blank back to original image space using inverse perspective 
+	#   matrix (Minv)
 	newwarp = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0]))
 	
 	# Combine the result with the original image
@@ -389,9 +414,11 @@ def draw_lines(img, mtx, dist):
 	return result
 
 def process_image(image, mtx, dist):
-	""" This processes through everything above.
-	Will return the image with car position, lane curvature, and lane lines drawn.
-	"""
+	'''
+	This processes through everything above.
+	Will return the image with car position, lane curvature, and 
+	  lane lines drawn.
+	'''
 	result = draw_lines(image, mtx, dist)
 	
 	return result
@@ -407,7 +434,8 @@ def main():
 	# vid_output is where the image will be saved to
 	vid_output = 'reg_vid.mp4'
 
-	# The file referenced in clip1 is the original video before anything has been done to it
+	# The file referenced in clip1 is the original video before anything has 
+	#   been done to it
 	clip1 = VideoFileClip('project_video.mp4')
 
 	# NOTE: this function expects color images
